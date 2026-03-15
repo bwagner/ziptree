@@ -1,8 +1,16 @@
 import io
+import tarfile
 import types
 import zipfile
 
-from ziptree import build_tree, count_tree, render_tree, ziptree
+from ziptree import (
+    build_tree,
+    count_tree,
+    render_tree,
+    tar_entries,
+    zip_entries,
+    ziptree,
+)
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -12,8 +20,7 @@ def make_zip(entries):
     """
     Build an in-memory ZIP and return its BytesIO.
 
-    entries: list of (name, content) where content=None means a directory entry
-             (stored with trailing slash, zero bytes).
+    entries: list of (name, content) where content=None means a directory entry.
     """
     buf = io.BytesIO()
     with zipfile.ZipFile(buf, "w") as zf:
@@ -26,14 +33,61 @@ def make_zip(entries):
     return buf
 
 
+def make_tar(entries, suffix=".tar.gz"):
+    """
+    Build an in-memory TAR and return its BytesIO.
+
+    entries: list of (name, content) where content=None means a directory entry.
+    """
+    fmt = (
+        "gz" if suffix in (".tar.gz", ".tgz") else
+        "bz2" if suffix in (".tar.bz2", ".tbz2") else
+        "xz" if suffix in (".tar.xz", ".txz") else
+        ""
+    )
+    buf = io.BytesIO()
+    with tarfile.open(fileobj=buf, mode=f"w:{fmt}") as tf:
+        for name, content in entries:
+            if content is None:
+                info = tarfile.TarInfo(name=name.rstrip("/"))
+                info.type = tarfile.DIRTYPE
+                tf.addfile(info)
+            else:
+                data = content.encode() if isinstance(content, str) else content
+                info = tarfile.TarInfo(name=name)
+                info.size = len(data)
+                tf.addfile(info, io.BytesIO(data))
+    buf.seek(0)
+    return buf
+
+
 def open_zip(buf):
     return zipfile.ZipFile(buf)
+
+
+def open_tar(buf, suffix=".tar.gz"):
+    fmt = (
+        "gz" if suffix in (".tar.gz", ".tgz") else
+        "bz2" if suffix in (".tar.bz2", ".tbz2") else
+        "xz" if suffix in (".tar.xz", ".txz") else
+        ""
+    )
+    return tarfile.open(fileobj=buf, mode=f"r:{fmt}")
 
 
 def run(entries, tmp_path, **kwargs):
     """Write a zip to tmp_path and run ziptree into a StringIO; return output."""
     p = tmp_path / "test.zip"
     p.write_bytes(make_zip(entries).read())
+    stream = io.StringIO()
+    ziptree(str(p), stream=stream, **kwargs)
+    return stream.getvalue()
+
+
+def run_tar(entries, tmp_path, suffix=".tar.gz", **kwargs):
+    """Write a tar to tmp_path and run ziptree into a StringIO; return output."""
+    p = tmp_path / f"test{suffix}"
+    p.write_bytes(make_tar(entries, suffix).read())
     stream = io.StringIO()
     ziptree(str(p), stream=stream, **kwargs)
     return stream.getvalue()
@@ -50,7 +104,7 @@ def test_build_tree_explicit_directory_entries():
         ("a/b/c.txt", "hello"),
     ])
     with open_zip(buf) as zf:
-        tree = build_tree(zf, zf.namelist())
+        tree = build_tree(zip_entries(zf, zf.namelist()))
     assert isinstance(tree["a"], dict)
     assert isinstance(tree["a"]["b"], dict)
     assert tree["a"]["b"]["c.txt"] == 5
@@ -64,7 +118,7 @@ def test_build_tree_implicit_directories():
         ("a/e.txt", "!"),
     ])
     with open_zip(buf) as zf:
-        tree = build_tree(zf, zf.namelist())
+        tree = build_tree(zip_entries(zf, zf.namelist()))
     assert isinstance(tree["a"], dict)
     assert isinstance(tree["a"]["b"], dict)
     assert set(tree["a"]["b"]) == {"c.txt", "d.txt"}
@@ -74,14 +128,12 @@ def test_build_tree_implicit_directories():
 def test_build_tree_root_level_files_only():
     buf = make_zip([("foo.txt", "x"), ("bar.txt", "yy")])
     with open_zip(buf) as zf:
-        tree = build_tree(zf, zf.namelist())
+        tree = build_tree(zip_entries(zf, zf.namelist()))
     assert tree == {"foo.txt": 1, "bar.txt": 2}
 
 
-def test_build_tree_empty_name_list():
-    buf = make_zip([("a.txt", "hi")])
-    with open_zip(buf) as zf:
-        tree = build_tree(zf, [])
+def test_build_tree_empty_entry_list():
+    tree = build_tree([])
     assert tree == {}
 
 
@@ -89,14 +141,14 @@ def test_build_tree_file_size_captured():
     content = "x" * 100
     buf = make_zip([("big.txt", content)])
     with open_zip(buf) as zf:
-        tree = build_tree(zf, zf.namelist())
+        tree = build_tree(zip_entries(zf, zf.namelist()))
     assert tree["big.txt"] == 100
 
 
 def test_build_tree_deep_nesting():
     buf = make_zip([("a/b/c/d/e/f.txt", "deep")])
     with open_zip(buf) as zf:
-        tree = build_tree(zf, zf.namelist())
+        tree = build_tree(zip_entries(zf, zf.namelist()))
     node = tree
     for part in ["a", "b", "c", "d", "e"]:
         assert isinstance(node[part], dict)
@@ -111,8 +163,29 @@ def test_build_tree_multiple_files_same_dir():
         ("dir/three.txt", "ccc"),
     ])
     with open_zip(buf) as zf:
-        tree = build_tree(zf, zf.namelist())
+        tree = build_tree(zip_entries(zf, zf.namelist()))
     assert set(tree["dir"]) == {"one.txt", "two.txt", "three.txt"}
+
+
+def test_build_tree_from_tar():
+    buf = make_tar([
+        ("a", None),
+        ("a/b.txt", "hello"),
+    ])
+    with open_tar(buf) as tf:
+        tree = build_tree(tar_entries(tf))
+    assert isinstance(tree["a"], dict)
+    assert tree["a"]["b.txt"] == 5
+
+
+def test_build_tree_from_tar_implicit_directories():
+    """TAR with no explicit dir entries - dirs inferred from file paths."""
+    buf = make_tar([("a/b/c.txt", "hi")])
+    with open_tar(buf) as tf:
+        tree = build_tree(tar_entries(tf))
+    assert isinstance(tree["a"], dict)
+    assert isinstance(tree["a"]["b"], dict)
+    assert tree["a"]["b"]["c.txt"] == 2
 
 
 # ---------------------------------------------------------------------------
@@ -136,7 +209,7 @@ def test_count_tree_nested():
         ("e.txt", "z"),
     ])
     with open_zip(buf) as zf:
-        tree = build_tree(zf, zf.namelist())
+        tree = build_tree(zip_entries(zf, zf.namelist()))
     dirs, files = count_tree(tree)
     assert dirs == 2  # a, a/b
     assert files == 3
@@ -192,7 +265,7 @@ def test_render_tree_alphabetical_within_dirs_and_files():
 
 
 # ---------------------------------------------------------------------------
-# Filtering (via ziptree integration)
+# ZIP filtering
 # ---------------------------------------------------------------------------
 
 def test_macos_filtered_by_default(tmp_path):
@@ -251,4 +324,48 @@ def test_default_stream_is_stdout(tmp_path, capsys):
     p.write_bytes(make_zip([("a.txt", "hi")]).read())
     ziptree(str(p))
     out = capsys.readouterr().out
+    assert "a.txt" in out
+
+
+# ---------------------------------------------------------------------------
+# TAR integration
+# ---------------------------------------------------------------------------
+
+def test_tar_gz_basic(tmp_path):
+    out = run_tar([("a/b.txt", "x"), ("c.txt", "y")], tmp_path, suffix=".tar.gz")
+    assert "a" in out
+    assert "b.txt" in out
+    assert "c.txt" in out
+    assert "1 directory, 2 files" in out
+
+
+def test_tar_bz2(tmp_path):
+    out = run_tar([("a.txt", "hi")], tmp_path, suffix=".tar.bz2")
+    assert "a.txt" in out
+
+
+def test_tar_xz(tmp_path):
+    out = run_tar([("a.txt", "hi")], tmp_path, suffix=".tar.xz")
+    assert "a.txt" in out
+
+
+def test_tar_no_extension(tmp_path):
+    out = run_tar([("a.txt", "hi")], tmp_path, suffix=".tar")
+    assert "a.txt" in out
+
+
+def test_tar_dotfiles_filtered_by_default(tmp_path):
+    out = run_tar([("visible.txt", "yes"), (".hidden", "no")], tmp_path)
+    assert "visible.txt" in out
+    assert ".hidden" not in out
+
+
+def test_tar_dotfiles_shown_with_all(tmp_path):
+    out = run_tar([("visible.txt", "yes"), (".hidden", "no")], tmp_path,
+                  show_hidden=True)
+    assert ".hidden" in out
+
+
+def test_tar_tgz_alias(tmp_path):
+    out = run_tar([("a.txt", "hi")], tmp_path, suffix=".tgz")
     assert "a.txt" in out
