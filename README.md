@@ -1,6 +1,6 @@
 # ziptree
 
-Display the contents of a ZIP file as a directory tree, without unpacking it.
+Display the contents of a ZIP file as a directory tree, without unpacking it (like [tree](https://oldmanprogrammer.net/source.php?dir=projects/tree)).
 
 ```
 Three Seminars wrt pattern filler.zip
@@ -30,9 +30,11 @@ Install uv:
 ```bash
 # macOS / Linux
 curl -LsSf https://astral.sh/uv/install.sh | sh
+```
 
-# or via Homebrew
-brew install uv
+```powershell
+# Windows
+powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
 ## Usage
@@ -44,7 +46,7 @@ brew install uv
 | Option | Description |
 |--------|-------------|
 | `-a`, `--all` | Show hidden files (dotfiles) |
-| `--macos` | Show `__MACOSX` metadata entries (includes their `._*` contents; `-a` not required) |
+| `-m`, `--macos` | Show `__MACOSX` metadata entries (includes their `._*` contents; `-a` not required) |
 | `-s`, `--size` | Show uncompressed file sizes |
 
 ## Notes
@@ -75,4 +77,4 @@ pre-commit run --all-files
 
 ## License
 
-MIT
+[MIT](LICENSE)

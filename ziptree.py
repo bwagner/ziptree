@@ -98,7 +98,7 @@ if __name__ == "__main__":
     parser.add_argument("zip_path", metavar="FILE.zip")
     parser.add_argument("-a", "--all", dest="show_hidden", action="store_true",
                         help="show hidden files (dotfiles)")
-    parser.add_argument("--macos", dest="show_macos", action="store_true",
+    parser.add_argument("-m", "--macos", dest="show_macos", action="store_true",
                         help="show __MACOSX metadata entries "
                              "(includes their ._* contents; -a not required)")
     parser.add_argument("-s", "--size", dest="show_size", action="store_true",
