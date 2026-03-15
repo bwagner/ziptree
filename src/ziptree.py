@@ -1,18 +1,22 @@
 #!/usr/bin/env -S uv run --script
 # /// script
-# requires-python = ">=3.9"
+# requires-python = ">=3.10"
 # dependencies = []
 # ///
 
 import sys
 import zipfile
 from pathlib import PurePosixPath
+from typing import IO, Generator
+
+# Recursive type: dirs are dicts, files are ints (uncompressed size)
+Tree = dict[str, "Tree | int"]
 
 
-def build_tree(zf, names):
+def build_tree(zf: zipfile.ZipFile, names: list[str]) -> Tree:
     """Build a nested dict from zip entries. Dirs -> dict, files -> int (size)."""
     info_map = {i.filename: i for i in zf.infolist()}
-    tree = {}
+    tree: Tree = {}
     for name in names:
         is_dir = name.endswith("/")
         parts = PurePosixPath(name.rstrip("/")).parts
@@ -22,7 +26,7 @@ def build_tree(zf, names):
         for part in parts[:-1]:
             if not isinstance(node.get(part), dict):
                 node[part] = {}
-            node = node[part]
+            node = node[part]  # type: ignore[assignment]
         last = parts[-1]
         if is_dir:
             node.setdefault(last, {})
@@ -32,7 +36,9 @@ def build_tree(zf, names):
     return tree
 
 
-def render_tree(tree, show_size=False, prefix=""):
+def render_tree(
+    tree: Tree, show_size: bool = False, prefix: str = ""
+) -> Generator[str, None, None]:
     dirs = sorted((k, v) for k, v in tree.items() if isinstance(v, dict))
     files = sorted((k, v) for k, v in tree.items() if not isinstance(v, dict))
     entries = dirs + files
@@ -47,7 +53,7 @@ def render_tree(tree, show_size=False, prefix=""):
             yield from render_tree(value, show_size, prefix + ext)
 
 
-def count_tree(tree):
+def count_tree(tree: Tree) -> tuple[int, int]:
     dirs = files = 0
     for v in tree.values():
         if isinstance(v, dict):
@@ -61,15 +67,19 @@ def count_tree(tree):
 
 
 def ziptree(
-    zip_path, show_hidden=False, show_macos=False, show_size=False, stream=None
-):
+    zip_path: str,
+    show_hidden: bool = False,
+    show_macos: bool = False,
+    show_size: bool = False,
+    stream: IO[str] | None = None,
+) -> None:
     with zipfile.ZipFile(zip_path) as zf:
         names = zf.namelist()
 
         if not show_macos:
             names = [n for n in names if not n.startswith("__MACOSX/")]
         if not show_hidden:
-            def is_hidden(name):
+            def is_hidden(name: str) -> bool:
                 # __MACOSX/._* entries are macOS metadata, not user dotfiles.
                 # --macos is the sole control for them; exempt from dotfile filter.
                 if show_macos and name.startswith("__MACOSX/"):
@@ -92,7 +102,7 @@ def ziptree(
     print(f"\n{dirs} {d}, {files} {f}", file=out)
 
 
-def main():
+def main() -> None:
     import argparse
 
     parser = argparse.ArgumentParser(
