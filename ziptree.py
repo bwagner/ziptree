@@ -36,17 +36,15 @@ def render_tree(tree, show_size=False, prefix=""):
     dirs = sorted((k, v) for k, v in tree.items() if isinstance(v, dict))
     files = sorted((k, v) for k, v in tree.items() if not isinstance(v, dict))
     entries = dirs + files
-    lines = []
     for i, (name, value) in enumerate(entries):
         is_last = i == len(entries) - 1
         connector = "└── " if is_last else "├── "
         is_file = not isinstance(value, dict)
         size_str = f"[{value:>12,}]  " if show_size and is_file else ""
-        lines.append(f"{prefix}{connector}{size_str}{name}")
+        yield f"{prefix}{connector}{size_str}{name}"
         if isinstance(value, dict):
             ext = "    " if is_last else "│   "
-            lines.extend(render_tree(value, show_size, prefix + ext))
-    return lines
+            yield from render_tree(value, show_size, prefix + ext)
 
 
 def count_tree(tree):

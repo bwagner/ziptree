@@ -1,4 +1,5 @@
 import io
+import types
 import zipfile
 
 from ziptree import build_tree, count_tree, render_tree, ziptree
@@ -149,9 +150,13 @@ def test_count_tree_empty():
 # render_tree
 # ---------------------------------------------------------------------------
 
+def test_render_tree_is_generator():
+    assert isinstance(render_tree({"a.txt": 0}), types.GeneratorType)
+
+
 def test_render_tree_connector_symbols():
     tree = {"a": {}, "b.txt": 0}
-    lines = render_tree(tree)
+    lines = list(render_tree(tree))
     # dirs before files
     assert lines[0].startswith("├── a")
     assert lines[1].startswith("└── b.txt")
@@ -159,13 +164,13 @@ def test_render_tree_connector_symbols():
 
 def test_render_tree_last_entry_uses_corner():
     tree = {"only.txt": 42}
-    lines = render_tree(tree)
+    lines = list(render_tree(tree))
     assert lines[0].startswith("└── ")
 
 
 def test_render_tree_size_shown_for_files_only():
     tree = {"dir": {"f.txt": 99}, "root.txt": 7}
-    lines = render_tree(tree, show_size=True)
+    lines = list(render_tree(tree, show_size=True))
     file_line = next(line for line in lines if "root.txt" in line)
     assert "[" in file_line
     dir_line = next(line for line in lines if "dir" in line and "f.txt" not in line)
@@ -174,14 +179,14 @@ def test_render_tree_size_shown_for_files_only():
 
 def test_render_tree_indentation_depth():
     tree = {"a": {"b": {"c.txt": 1}}}
-    lines = render_tree(tree)
+    lines = list(render_tree(tree))
     c_line = next(line for line in lines if "c.txt" in line)
     assert c_line.startswith("    ")  # at least one level of indent
 
 
 def test_render_tree_alphabetical_within_dirs_and_files():
     tree = {"zebra": {}, "apple": {}, "mango.txt": 0, "ant.txt": 0}
-    lines = render_tree(tree)
+    lines = list(render_tree(tree))
     names = [line.split("── ")[1] for line in lines]
     assert names == ["apple", "zebra", "ant.txt", "mango.txt"]
 
