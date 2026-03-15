@@ -92,7 +92,7 @@ def ziptree(
     print(f"\n{dirs} {d}, {files} {f}", file=out)
 
 
-if __name__ == "__main__":
+def main():
     import argparse
 
     parser = argparse.ArgumentParser(
@@ -109,3 +109,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ziptree(args.zip_path, args.show_hidden, args.show_macos, args.show_size)
+
+
+if __name__ == "__main__":
+    main()

@@ -20,12 +20,9 @@ Three Seminars wrt pattern filler.zip
 8 directories, 12 files
 ```
 
-## Requirements
+## Installation
 
-- Python 3.9+
-- [uv](https://github.com/astral-sh/uv)
-
-Install uv:
+Install [uv](https://github.com/astral-sh/uv) if you don't have it:
 
 ```bash
 # macOS / Linux
@@ -37,10 +34,16 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
+Then install ziptree:
+
+```bash
+uv tool install git+https://github.com/bwagner/ziptree
+```
+
 ## Usage
 
 ```
-./ziptree.py [options] FILE.zip
+ziptree [options] FILE.zip
 ```
 
 | Option | Description |
