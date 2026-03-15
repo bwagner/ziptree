@@ -73,8 +73,16 @@ def build_tree(entries: list[Entry]) -> Tree:
     return tree
 
 
+def _human_size(n: int) -> str:
+    for unit in ("B", "K", "M", "G", "T"):
+        if n < 1024:
+            return f"{n:.0f} {unit}" if unit == "B" else f"{n:.1f} {unit}"
+        n /= 1024  # type: ignore[assignment]
+    return f"{n:.1f} P"
+
+
 def render_tree(
-    tree: Tree, show_size: bool = False, prefix: str = ""
+    tree: Tree, size_format: str | None = None, prefix: str = ""
 ) -> Generator[str, None, None]:
     dirs = sorted((k, v) for k, v in tree.items() if isinstance(v, dict))
     files = sorted((k, v) for k, v in tree.items() if not isinstance(v, dict))
@@ -83,11 +91,17 @@ def render_tree(
         is_last = i == len(entries) - 1
         connector = "└── " if is_last else "├── "
         is_file = not isinstance(value, dict)
-        size_str = f"[{value:>12,}]  " if show_size and is_file else ""
+        if size_format and is_file:
+            if size_format == "bytes":
+                size_str = f"[{value:>12,}]  "
+            else:
+                size_str = f"[{_human_size(value):>7}]  "
+        else:
+            size_str = ""
         yield f"{prefix}{connector}{size_str}{name}"
         if isinstance(value, dict):
             ext = "    " if is_last else "│   "
-            yield from render_tree(value, show_size, prefix + ext)
+            yield from render_tree(value, size_format, prefix + ext)
 
 
 def count_tree(tree: Tree) -> tuple[int, int]:
@@ -126,6 +140,7 @@ def arctree(
     show_hidden: bool = False,
     show_macos: bool = False,
     show_size: bool = False,
+    show_bytes: bool = False,
     stream: IO[str] | None = None,
 ) -> None:
     fmt = _detect_format(zip_path)
@@ -203,9 +218,10 @@ def arctree(
 
     tree = build_tree(entries)
     out = stream if stream is not None else sys.stdout
+    size_format = "bytes" if show_bytes else "human" if show_size else None
 
     print(PurePosixPath(zip_path).name, file=out)
-    for line in render_tree(tree, show_size):
+    for line in render_tree(tree, size_format):
         print(line, file=out)
 
     dirs, files = count_tree(tree)
@@ -228,10 +244,13 @@ def main() -> None:
                         help="show __MACOSX metadata entries "
                              "(includes their ._* contents; -a not required)")
     parser.add_argument("-s", "--size", dest="show_size", action="store_true",
-                        help="show file sizes")
+                        help="show file sizes (human-readable)")
+    parser.add_argument("-b", "--bytes", dest="show_bytes", action="store_true",
+                        help="show file sizes in bytes (implies -s)")
     args = parser.parse_args()
 
-    arctree(args.zip_path, args.show_hidden, args.show_macos, args.show_size)
+    arctree(args.zip_path, args.show_hidden, args.show_macos,
+            args.show_size, args.show_bytes)
 
 
 if __name__ == "__main__":

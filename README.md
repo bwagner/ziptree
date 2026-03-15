@@ -52,7 +52,8 @@ arctree [options] ARCHIVE
 |--------|-------------|
 | `-a`, `--all` | Show hidden files (dotfiles) |
 | `-m`, `--macos` | Show `__MACOSX` metadata entries (includes their `._*` contents; `-a` not required) |
-| `-s`, `--size` | Show uncompressed file sizes |
+| `-s`, `--size` | Show file sizes (human-readable: K, M, G, T) |
+| `-b`, `--bytes` | Show file sizes in bytes (implies `-s`) |
 
 Optional dependencies for additional formats:
 

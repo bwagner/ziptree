@@ -247,11 +247,32 @@ def test_render_tree_last_entry_uses_corner():
 
 def test_render_tree_size_shown_for_files_only():
     tree = {"dir": {"f.txt": 99}, "root.txt": 7}
-    lines = list(render_tree(tree, show_size=True))
+    lines = list(render_tree(tree, size_format="human"))
     file_line = next(line for line in lines if "root.txt" in line)
     assert "[" in file_line
     dir_line = next(line for line in lines if "dir" in line and "f.txt" not in line)
     assert "[" not in dir_line
+
+
+def test_render_tree_human_size():
+    tree = {"small.txt": 512, "big.txt": 1536}
+    lines = list(render_tree(tree, size_format="human"))
+    small = next(line for line in lines if "small.txt" in line)
+    big = next(line for line in lines if "big.txt" in line)
+    assert "512 B" in small
+    assert "1.5 K" in big
+
+
+def test_render_tree_bytes_size():
+    tree = {"f.txt": 1234}
+    lines = list(render_tree(tree, size_format="bytes"))
+    assert "1,234" in lines[0]
+
+
+def test_render_tree_bytes_wins_over_human(tmp_path):
+    out = run([("f.txt", "x" * 2048)], tmp_path, show_size=True, show_bytes=True)
+    assert "2,048" in out
+    assert "K" not in out
 
 
 def test_render_tree_indentation_depth():
