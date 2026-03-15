@@ -1,7 +1,11 @@
 import io
+import sys
 import tarfile
 import types
 import zipfile
+from unittest.mock import patch
+
+import pytest
 
 from ziptree import (
     build_tree,
@@ -369,3 +373,63 @@ def test_tar_dotfiles_shown_with_all(tmp_path):
 def test_tar_tgz_alias(tmp_path):
     out = run_tar([("a.txt", "hi")], tmp_path, suffix=".tgz")
     assert "a.txt" in out
+
+
+# ---------------------------------------------------------------------------
+# tar.zst
+# ---------------------------------------------------------------------------
+
+def make_tar_zst(entries):
+    zstandard = pytest.importorskip("zstandard")
+    plain = make_tar(entries, suffix=".tar")
+    cctx = zstandard.ZstdCompressor()
+    return io.BytesIO(cctx.compress(plain.read()))
+
+
+def test_tar_zst_missing_dep(tmp_path):
+    p = tmp_path / "test.tar.zst"
+    p.write_bytes(b"dummy")
+    with patch.dict(sys.modules, {"zstandard": None}):
+        with pytest.raises(ImportError, match="pip install zstandard"):
+            ziptree(str(p))
+
+
+def test_tar_zst_basic(tmp_path):
+    pytest.importorskip("zstandard")
+    p = tmp_path / "test.tar.zst"
+    p.write_bytes(make_tar_zst([("a/b.txt", "x"), ("c.txt", "y")]).read())
+    stream = io.StringIO()
+    ziptree(str(p), stream=stream)
+    out = stream.getvalue()
+    assert "b.txt" in out
+    assert "c.txt" in out
+
+
+# ---------------------------------------------------------------------------
+# tar.lz4
+# ---------------------------------------------------------------------------
+
+def make_tar_lz4(entries):
+    pytest.importorskip("lz4.frame")
+    import lz4.frame
+    plain = make_tar(entries, suffix=".tar")
+    return io.BytesIO(lz4.frame.compress(plain.read()))
+
+
+def test_tar_lz4_missing_dep(tmp_path):
+    p = tmp_path / "test.tar.lz4"
+    p.write_bytes(b"dummy")
+    with patch.dict(sys.modules, {"lz4": None, "lz4.frame": None}):
+        with pytest.raises(ImportError, match="pip install lz4"):
+            ziptree(str(p))
+
+
+def test_tar_lz4_basic(tmp_path):
+    pytest.importorskip("lz4.frame")
+    p = tmp_path / "test.tar.lz4"
+    p.write_bytes(make_tar_lz4([("a/b.txt", "x"), ("c.txt", "y")]).read())
+    stream = io.StringIO()
+    ziptree(str(p), stream=stream)
+    out = stream.getvalue()
+    assert "b.txt" in out
+    assert "c.txt" in out

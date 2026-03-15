@@ -15,7 +15,10 @@ Tree = dict[str, "Tree | int"]
 
 # Supported extensions
 _ZIP_SUFFIXES = {".zip"}
-_TAR_SUFFIXES = {".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz"}
+_TAR_SUFFIXES = {
+    ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz",
+    ".tar.zst", ".tzst", ".tar.lz4", ".tlz4",
+}
 
 
 class Entry(NamedTuple):
@@ -130,8 +133,35 @@ def ziptree(
             entries = zip_entries(zf, names)
 
     else:  # tar
-        with tarfile.open(zip_path, "r:*") as tf:
-            entries = tar_entries(tf)
+        lower = zip_path.lower()
+        if lower.endswith(".tar.zst") or lower.endswith(".tzst"):
+            try:
+                import zstandard  # type: ignore[import-not-found]
+            except ImportError:
+                raise ImportError(
+                    "zstandard is required for .tar.zst files: pip install zstandard"
+                )
+            with open(zip_path, "rb") as fh:
+                dctx = zstandard.ZstdDecompressor()
+                import io
+                raw = io.BytesIO(dctx.decompress(fh.read()))
+            with tarfile.open(fileobj=raw, mode="r:") as tf:
+                entries = tar_entries(tf)
+        elif lower.endswith(".tar.lz4") or lower.endswith(".tlz4"):
+            try:
+                import lz4.frame  # type: ignore[import-not-found]
+            except ImportError:
+                raise ImportError(
+                    "lz4 is required for .tar.lz4 files: pip install lz4"
+                )
+            with open(zip_path, "rb") as fh:
+                import io
+                raw = io.BytesIO(lz4.frame.decompress(fh.read()))
+            with tarfile.open(fileobj=raw, mode="r:") as tf:
+                entries = tar_entries(tf)
+        else:
+            with tarfile.open(zip_path, "r:*") as tf:
+                entries = tar_entries(tf)
         if not show_hidden:
             entries = [e for e in entries if not _is_hidden(e.path)]
 
