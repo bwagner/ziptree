@@ -1,6 +1,8 @@
-# ziptree
+# arctree
 
-Display the contents of a ZIP file as a directory tree, without unpacking it (like [tree](https://oldmanprogrammer.net/source.php?dir=projects/tree)).
+Display the contents of an archive as a directory tree, without unpacking it (like [tree](https://oldmanprogrammer.net/source.php?dir=projects/tree)).
+
+Supports ZIP, tar, tar.gz, tar.bz2, tar.xz, tar.zst, and tar.lz4.
 
 ```
 Three Seminars wrt pattern filler.zip
@@ -34,16 +36,16 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | iex"
 ```
 
-Then install ziptree:
+Then install arctree:
 
 ```bash
-uv tool install git+https://github.com/bwagner/ziptree
+uv tool install git+https://github.com/bwagner/arctree
 ```
 
 ## Usage
 
 ```
-ziptree [options] FILE.zip
+arctree [options] ARCHIVE
 ```
 
 | Option | Description |
@@ -52,18 +54,25 @@ ziptree [options] FILE.zip
 | `-m`, `--macos` | Show `__MACOSX` metadata entries (includes their `._*` contents; `-a` not required) |
 | `-s`, `--size` | Show uncompressed file sizes |
 
+Optional dependencies for additional formats:
+
+```bash
+pip install zstandard  # for .tar.zst
+pip install lz4        # for .tar.lz4
+```
+
 ## Use as a module
 
 ```python
 import io
-from ziptree import ziptree
+from arctree import arctree
 
 # print to stdout (default)
-ziptree("archive.zip")
+arctree("archive.zip")
 
 # capture output
 stream = io.StringIO()
-ziptree("archive.zip", show_size=True, stream=stream)
+arctree("archive.tar.gz", show_size=True, stream=stream)
 output = stream.getvalue()
 ```
 

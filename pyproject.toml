@@ -3,19 +3,19 @@ requires = ["setuptools>=64"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ziptree"
+name = "arctree"
 version = "0.1.0"
-description = "Display ZIP file contents as a directory tree"
+description = "Display archive contents as a directory tree"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [{ name = "Bernhard Wagner" }]
 requires-python = ">=3.10"
 
 [project.scripts]
-ziptree = "ziptree:main"
+arctree = "arctree:main"
 
 [tool.setuptools]
-py-modules = ["ziptree"]
+py-modules = ["arctree"]
 
 [tool.setuptools.package-dir]
 "" = "src"

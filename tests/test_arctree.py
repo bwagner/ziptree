@@ -7,13 +7,13 @@ from unittest.mock import patch
 
 import pytest
 
-from ziptree import (
+from arctree import (
+    arctree,
     build_tree,
     count_tree,
     render_tree,
     tar_entries,
     zip_entries,
-    ziptree,
 )
 
 # ---------------------------------------------------------------------------
@@ -80,20 +80,20 @@ def open_tar(buf, suffix=".tar.gz"):
 
 
 def run(entries, tmp_path, **kwargs):
-    """Write a zip to tmp_path and run ziptree into a StringIO; return output."""
+    """Write a zip to tmp_path and run arctree into a StringIO; return output."""
     p = tmp_path / "test.zip"
     p.write_bytes(make_zip(entries).read())
     stream = io.StringIO()
-    ziptree(str(p), stream=stream, **kwargs)
+    arctree(str(p), stream=stream, **kwargs)
     return stream.getvalue()
 
 
 def run_tar(entries, tmp_path, suffix=".tar.gz", **kwargs):
-    """Write a tar to tmp_path and run ziptree into a StringIO; return output."""
+    """Write a tar to tmp_path and run arctree into a StringIO; return output."""
     p = tmp_path / f"test{suffix}"
     p.write_bytes(make_tar(entries, suffix).read())
     stream = io.StringIO()
-    ziptree(str(p), stream=stream, **kwargs)
+    arctree(str(p), stream=stream, **kwargs)
     return stream.getvalue()
 
 
@@ -326,7 +326,7 @@ def test_default_stream_is_stdout(tmp_path, capsys):
     # when no stream is passed, output goes to stdout
     p = tmp_path / "test.zip"
     p.write_bytes(make_zip([("a.txt", "hi")]).read())
-    ziptree(str(p))
+    arctree(str(p))
     out = capsys.readouterr().out
     assert "a.txt" in out
 
@@ -391,7 +391,7 @@ def test_tar_zst_missing_dep(tmp_path):
     p.write_bytes(b"dummy")
     with patch.dict(sys.modules, {"zstandard": None}):
         with pytest.raises(ImportError, match="pip install zstandard"):
-            ziptree(str(p))
+            arctree(str(p))
 
 
 def test_tar_zst_basic(tmp_path):
@@ -399,7 +399,7 @@ def test_tar_zst_basic(tmp_path):
     p = tmp_path / "test.tar.zst"
     p.write_bytes(make_tar_zst([("a/b.txt", "x"), ("c.txt", "y")]).read())
     stream = io.StringIO()
-    ziptree(str(p), stream=stream)
+    arctree(str(p), stream=stream)
     out = stream.getvalue()
     assert "b.txt" in out
     assert "c.txt" in out
@@ -421,7 +421,7 @@ def test_tar_lz4_missing_dep(tmp_path):
     p.write_bytes(b"dummy")
     with patch.dict(sys.modules, {"lz4": None, "lz4.frame": None}):
         with pytest.raises(ImportError, match="pip install lz4"):
-            ziptree(str(p))
+            arctree(str(p))
 
 
 def test_tar_lz4_basic(tmp_path):
@@ -429,7 +429,7 @@ def test_tar_lz4_basic(tmp_path):
     p = tmp_path / "test.tar.lz4"
     p.write_bytes(make_tar_lz4([("a/b.txt", "x"), ("c.txt", "y")]).read())
     stream = io.StringIO()
-    ziptree(str(p), stream=stream)
+    arctree(str(p), stream=stream)
     out = stream.getvalue()
     assert "b.txt" in out
     assert "c.txt" in out

@@ -109,7 +109,7 @@ def _is_hidden(path: str) -> bool:
     return any(p.startswith(".") for p in PurePosixPath(path.rstrip("/")).parts)
 
 
-def ziptree(
+def arctree(
     zip_path: str,
     show_hidden: bool = False,
     show_macos: bool = False,
@@ -185,7 +185,7 @@ def main() -> None:
         description="Display archive contents as a tree."
     )
     parser.add_argument("zip_path", metavar="ARCHIVE",
-                        help="zip, tar, tar.gz, tar.bz2, tar.xz file")
+                        help="zip, tar, tar.gz, tar.bz2, tar.xz, tar.zst, tar.lz4 file")
     parser.add_argument("-a", "--all", dest="show_hidden", action="store_true",
                         help="show hidden files (dotfiles)")
     parser.add_argument("-m", "--macos", dest="show_macos", action="store_true",
@@ -195,7 +195,7 @@ def main() -> None:
                         help="show file sizes")
     args = parser.parse_args()
 
-    ziptree(args.zip_path, args.show_hidden, args.show_macos, args.show_size)
+    arctree(args.zip_path, args.show_hidden, args.show_macos, args.show_size)
 
 
 if __name__ == "__main__":
