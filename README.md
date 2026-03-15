@@ -2,7 +2,7 @@
 
 Display the contents of an archive as a directory tree, without unpacking it (like [tree](https://oldmanprogrammer.net/source.php?dir=projects/tree)).
 
-Supports ZIP, tar, tar.gz, tar.bz2, tar.xz, tar.zst, and tar.lz4.
+Supports ZIP, 7z, tar, tar.gz, tar.bz2, tar.xz, tar.zst, and tar.lz4.
 
 ```
 Three Seminars wrt pattern filler.zip
@@ -57,6 +57,7 @@ arctree [options] ARCHIVE
 Optional dependencies for additional formats:
 
 ```bash
+pip install py7zr      # for .7z
 pip install zstandard  # for .tar.zst
 pip install lz4        # for .tar.lz4
 ```

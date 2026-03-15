@@ -445,3 +445,51 @@ def test_tar_lz4_basic(tmp_path):
     out = stream.getvalue()
     assert "b.txt" in out
     assert "c.txt" in out
+
+
+# ---------------------------------------------------------------------------
+# 7z
+# ---------------------------------------------------------------------------
+
+def make_7z(entries):
+    py7zr = pytest.importorskip("py7zr")
+    buf = io.BytesIO()
+    with py7zr.SevenZipFile(buf, mode="w") as szf:
+        for name, content in entries:
+            if content is None:
+                szf.mkdir(name)
+            else:
+                data = content.encode() if isinstance(content, str) else content
+                szf.writestr(data, name)
+    buf.seek(0)
+    return buf
+
+
+def test_7z_missing_dep(tmp_path):
+    p = tmp_path / "test.7z"
+    p.write_bytes(b"dummy")
+    with patch.dict(sys.modules, {"py7zr": None}):
+        with pytest.raises(ImportError, match="pip install py7zr"):
+            arctree(str(p))
+
+
+def test_7z_basic(tmp_path):
+    pytest.importorskip("py7zr")
+    p = tmp_path / "test.7z"
+    p.write_bytes(make_7z([("a/b.txt", "x"), ("c.txt", "y")]).read())
+    stream = io.StringIO()
+    arctree(str(p), stream=stream)
+    out = stream.getvalue()
+    assert "b.txt" in out
+    assert "c.txt" in out
+
+
+def test_7z_dotfiles_filtered_by_default(tmp_path):
+    pytest.importorskip("py7zr")
+    p = tmp_path / "test.7z"
+    p.write_bytes(make_7z([("visible.txt", "yes"), (".hidden", "no")]).read())
+    stream = io.StringIO()
+    arctree(str(p), stream=stream)
+    out = stream.getvalue()
+    assert "visible.txt" in out
+    assert ".hidden" not in out

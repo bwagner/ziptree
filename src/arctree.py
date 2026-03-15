@@ -15,6 +15,7 @@ Tree = dict[str, "Tree | int"]
 
 # Supported extensions
 _ZIP_SUFFIXES = {".zip"}
+_7Z_SUFFIXES = {".7z"}
 _TAR_SUFFIXES = {
     ".tar", ".tar.gz", ".tgz", ".tar.bz2", ".tbz2", ".tar.xz", ".txz",
     ".tar.zst", ".tzst", ".tar.lz4", ".tlz4",
@@ -37,6 +38,14 @@ def zip_entries(zf: zipfile.ZipFile, names: list[str]) -> list[Entry]:
         size = info.file_size if info and not is_dir else 0
         entries.append(Entry(name, is_dir, size))
     return entries
+
+
+def sevenz_entries(szf: object) -> list[Entry]:
+    """Extract entries from a SevenZipFile."""
+    return [
+        Entry(info.filename, info.is_directory, info.uncompressed or 0)
+        for info in szf.list()  # type: ignore[attr-defined]
+    ]
 
 
 def tar_entries(tf: tarfile.TarFile) -> list[Entry]:
@@ -102,6 +111,9 @@ def _detect_format(path: str) -> str:
     for ext in _ZIP_SUFFIXES:
         if lower.endswith(ext):
             return "zip"
+    for ext in _7Z_SUFFIXES:
+        if lower.endswith(ext):
+            return "7z"
     raise ValueError(f"Unsupported archive format: {path}")
 
 
@@ -131,6 +143,24 @@ def arctree(
                     return _is_hidden(name)
                 names = [n for n in names if not _zip_hidden(n)]
             entries = zip_entries(zf, names)
+
+    elif fmt == "7z":
+        try:
+            import py7zr  # type: ignore[import-not-found]
+        except ImportError:
+            raise ImportError(
+                "py7zr is required for .7z files: pip install py7zr"
+            )
+        with py7zr.SevenZipFile(zip_path, mode="r") as szf:
+            entries = sevenz_entries(szf)
+        if not show_macos:
+            entries = [e for e in entries if not e.path.startswith("__MACOSX/")]
+        if not show_hidden:
+            entries = [
+                e for e in entries
+                if (show_macos and e.path.startswith("__MACOSX/"))
+                or not _is_hidden(e.path)
+            ]
 
     else:  # tar
         lower = zip_path.lower()
@@ -191,7 +221,7 @@ def main() -> None:
         description="Display archive contents as a tree."
     )
     parser.add_argument("zip_path", metavar="ARCHIVE",
-                        help="zip, tar, tar.gz, tar.bz2, tar.xz, tar.zst, tar.lz4 file")
+                        help="zip, 7z, tar, tar.gz, tar.bz2, tar.xz, tar.zst, tar.lz4")
     parser.add_argument("-a", "--all", dest="show_hidden", action="store_true",
                         help="show hidden files (dotfiles)")
     parser.add_argument("-m", "--macos", dest="show_macos", action="store_true",
